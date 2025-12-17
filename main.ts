@@ -1,241 +1,127 @@
-// -----------------------------
-// LOGO shows last timer
-// -----------------------------
-input.onLogoEvent(TouchButtonEvent.LongPressed, function () {
-    basic.showString("" + (Last_time))
-})
-// -----------------------------
-// BUTTON A
-// -----------------------------
+// --- 1. Menu & Stopwatch Controls ---
 input.onButtonPressed(Button.A, function () {
-    // Menu navigation
-    if (menuConfirmed == 0) {
-        menuOption = 0
-        showMenu()
-        return
-    }
-    // Dodge left
-    if (menuOption == 0 && mode == 0 && playerX > 0) {
-        playerX += -1
+    if (!(confirmed)) {
+        mode = Math.max(1, mode - 1)
+        basic.showNumber(mode)
+    } else if (gameActive && playerX > 0) {
+        playerX += 0 - 1
         Player.set(LedSpriteProperty.X, playerX)
     }
 })
-// -----------------------------
-// START TIMER GAME
-// -----------------------------
-function startTimerGame () {
-    running = 1
-    start = input.runningTime()
-    seconds = 0
-}
-// -----------------------------
-// BUTTON B
-// -----------------------------
-input.onButtonPressed(Button.B, function () {
-    // Menu navigation
-    if (menuConfirmed == 0) {
-        menuOption = 1
-        showMenu()
-        return
+input.onButtonPressed(Button.AB, function () {
+    if (!(confirmed)) {
+        confirmed = true
+        if (mode == 1) {
+            setupDodgeGame()
+        } else if (mode == 2) {
+            basic.showLeds(`
+                . . . . .
+                . . . . .
+                . . . . .
+                . . . . .
+                . . . . .
+                `)
+            basic.showString("SW")
+        }
+    } else if (mode == 2) {
+        // Toggle Stopwatch Logic
+        if (!(sw_active)) {
+            start_time = input.runningTime()
+            sw_active = true
+        } else {
+            sw_active = false
+            basic.clearScreen()
+            basic.showString("" + (elapsed))
+        }
     }
-    // Dodge right
-    if (menuOption == 0 && mode == 0 && playerX < 4) {
+})
+input.onButtonPressed(Button.B, function () {
+    if (!(confirmed)) {
+        mode = Math.min(2, mode + 1)
+        basic.showNumber(mode)
+    } else if (gameActive && playerX < 4) {
         playerX += 1
         Player.set(LedSpriteProperty.X, playerX)
     }
 })
-// -----------------------------
-// START DODGE GAME
-// -----------------------------
-function startDodgeGame () {
-    switchToMode0 = 1
-    menuOption = 0
-}
-// -----------------------------
-// LOGO PRESS CONFIRM
-// -----------------------------
-input.onLogoEvent(TouchButtonEvent.Pressed, function () {
-    // Confirm menu selection
-    if (menuConfirmed == 0) {
-        menuConfirmed = 1
-        basic.clearScreen()
-        if (menuOption == 0) {
-            startDodgeGame()
-        } else {
-            startTimerGame()
-        }
-        return
-    }
-    // Pause/resume Dodge
-    if (menuOption == 0) {
-        if (mode == 0) {
-            mode = 1
-            basic.clearScreen()
-        } else {
-            mode = 0
-            switchToMode0 = 1
-            basic.clearScreen()
-        }
-    }
-})
-// -----------------------------
-// MENU DISPLAY
-// -----------------------------
-function showMenu () {
+// --- 2. Dodge Game Setup ---
+function setupDodgeGame() {
     basic.clearScreen()
-    if (menuOption == 0) {
-        basic.showLeds(`
-            . . . . .
-            . # # # .
-            . # . # .
-            . # # # .
-            . . . . .
-            `)
-    } else {
-        basic.showLeds(`
-            . . . . .
-            . # # # .
-            . # # # .
-            . # # # .
-            . . . . .
-            `)
-    }
-}
-let waveHits = 0
-let score = 0
-let start_game = 0
-let obstacles: game.LedSprite[] = []
-let delay_before_movement = 0
-let elapsed = 0
-let timerStarted = 0
-let switchToMode0 = 0
-let seconds = 0
-let start = 0
-let running = 0
-let Player: game.LedSprite = null
-let mode = 0
-let menuOption = 0
-let menuConfirmed = 0
-let Last_time = 0
-let playerX = 0
-let obstacleY: number[] = []
-playerX = 2
-// prevents instant double-trigger
-let abReady = 1
-/**
- * -----------------------------
- */
-/**
- * -----------------------------
- */
-// prevents instant double-trigger
-basic.forever(function () {
-    if (menuConfirmed == 1 && menuOption == 1 && running == 1) {
-        // AB pressed → START timer
-        if (input.buttonIsPressed(Button.AB) && timerStarted == 0 && abReady == 1) {
-            timerStarted = 1
-            // block until AB released
-            abReady = 0
-            start = input.runningTime()
-            basic.showLeds(`
-                . # . # .
-                # . # . #
-                . # . # .
-                # . # . #
-                . # . # .
-                `)
-        }
-        // AB released → re-arm AB detection
-        if (!(input.buttonIsPressed(Button.AB)) && abReady == 0) {
-            abReady = 1
-        }
-        // AB pressed again → STOP timer
-        if (input.buttonIsPressed(Button.AB) && timerStarted == 1 && abReady == 1) {
-            timerStarted = 0
-            running = 0
-            // prevent accidental retrigger
-            abReady = 0
-            elapsed = (input.runningTime() - start) / 1000
-            basic.clearScreen()
-            basic.showString("" + (elapsed))
-            Last_time = elapsed
-        }
-    }
-})
-// -----------------------------
-// RESET + START DODGE GAME
-// -----------------------------
-basic.forever(function () {
-    if (menuConfirmed == 1 && menuOption == 0 && switchToMode0 == 1) {
-        basic.clearScreen()
+    for (let i = 3; i > 0; i--) {
+        basic.showNumber(i)
         basic.pause(200)
-        // Reset
-        playerX = 2
-        delay_before_movement = 500
-        obstacleY = []
-        obstacles = []
-        start_game = 0
-        score = 0
-        waveHits = 0
-        // Remove old player
-        if (Player) {
-            Player.delete()
-        }
-        Player = game.createSprite(playerX, 4)
-        for (let index = 0; index < 4; index++) {
-            obstacles.push(game.createSprite(Math.randomRange(0, 4), 0))
-            obstacleY.push(0)
-        }
-        switchToMode0 = 0
-        start_game = 1
+    }
+    basic.clearScreen()
+    // Initialize Game State
+    playerX = 2
+    score = 0
+    speed = 500
+    obstacles = []
+    obstacleY = []
+    Player = game.createSprite(playerX, playerY)
+    // Create Initial Obstacles
+    for (let index = 0; index < 3; index++) {
+        ox = Math.randomRange(0, 4)
+        obstacles.push(game.createSprite(ox, 0))
+        obstacleY.push(0)
+    }
+    gameActive = true
+}
+/**
+ * Game Specific Variables
+ */
+let newX = 0
+let ox = 0
+let obstacles: game.LedSprite[] = []
+let score = 0
+let elapsed = 0
+let start_time = 0
+let sw_active = false
+let Player: game.LedSprite = null
+let gameActive = false
+let confirmed = false
+let speed = 0
+let playerY = 0
+let playerX = 0
+let mode = 0
+let obstacleY: number[] = []
+// --- Global Variables ---
+mode = 1
+playerX = 2
+playerY = 4
+speed = 500
+// --- 3. Main Loops ---
+// Stopwatch Loop
+basic.forever(function () {
+    if (confirmed && mode == 2 && sw_active) {
+        elapsed = (input.runningTime() - start_time) / 1000
+        whaleysans.showNumber(Math.floor(elapsed))
     }
 })
-// -----------------------------
-// DODGE GAME LOOP
-// -----------------------------
+// Dodge Game Loop
 basic.forever(function () {
-    if (menuConfirmed == 1 && menuOption == 0 && start_game == 1 && mode == 0) {
-        for (let j = 0; j <= obstacles.length - 1; j++) {
-            obstacleY[j]++
-// Reset at bottom
-            if (obstacleY[j] > 4) {
-                if (delay_before_movement > 300) {
-                    delay_before_movement += 0 - 10
-                } else {
-                    delay_before_movement = 200
-                }
-                waveHits += 1
-                if (waveHits == obstacles.length) {
-                    score += 5
-                    waveHits = 0
-                    basic.clearScreen()
-                }
-                obstacleY[j] = 0
-                obstacles[j].set(LedSpriteProperty.X, Math.randomRange(0, 4))
-            }
-            obstacles[j].set(LedSpriteProperty.Y, obstacleY[j])
-            // Collision
-            if (obstacles[j].get(LedSpriteProperty.X) == playerX && obstacles[j].get(LedSpriteProperty.Y) == 4) {
-                start_game = 0
-                mode = 1
-                basic.clearScreen()
-                basic.showLeds(`
-                    . # . # .
-                    # # # # #
-                    # # # # #
-                    . # # # .
-                    . . # . .
-                    `)
+    if (gameActive) {
+        for (let k = 0; k <= obstacles.length - 1; k++) {
+            obstacleY[k]++
+            obstacles[k].set(LedSpriteProperty.Y, obstacleY[k])
+            // Collision Detection
+            if (obstacleY[k] == playerY && obstacles[k].get(LedSpriteProperty.X) == playerX) {
+                gameActive = false
                 basic.pause(500)
-                Player.delete()
-                for (let o of obstacles) {
-                    o.delete()
-                }
-                obstacles = []
-                basic.clearScreen()
-                basic.showString("SCORE:" + score)
+                game.setScore(score)
+                game.gameOver()
+            }
+            // Obstacle Recycling
+            if (obstacleY[k] > 4) {
+                score += 1
+                // Increase speed
+                speed = Math.max(150, speed - 10)
+                newX = Math.randomRange(0, 4)
+                obstacles[k].set(LedSpriteProperty.X, newX)
+                obstacleY[k] = 0
+                obstacles[k].set(LedSpriteProperty.Y, 0)
             }
         }
-        basic.pause(delay_before_movement)
+        basic.pause(speed)
     }
 })
